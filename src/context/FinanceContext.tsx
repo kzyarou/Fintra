@@ -479,9 +479,9 @@ export function FinanceProvider({ children }: {children: React.ReactNode;}) {
 
   const removeConnectedAccount = async (id: string) => {
     const account = connectedAccounts.find((a) => a.id === id);
-    if (account?.connectedAccountId) {
+    if (account?.connectedAccountId && account?.accessToken) {
       try {
-        await disconnectAccount(account.connectedAccountId);
+        await disconnectAccount(account.accessToken, account.connectedAccountId);
       } catch (err) {
         console.error('Failed to disconnect from Brankas:', err);
       }
@@ -491,16 +491,17 @@ export function FinanceProvider({ children }: {children: React.ReactNode;}) {
 
   const syncConnectedAccount = async (id: string) => {
     const account = connectedAccounts.find((a) => a.id === id);
-    if (!account?.connectedAccountId) return;
+    if (!account?.connectedAccountId || !account?.accessToken) return;
 
     try {
       // Fetch latest balance
-      const balanceData = await fetchBalance(account.connectedAccountId);
+      const balanceData = await fetchBalance(account.accessToken, account.connectedAccountId);
       
       // Fetch recent transactions (last 30 days)
       const endDate = new Date().toISOString().split('T')[0];
       const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       const brankasTransactions = await fetchTransactions(
+        account.accessToken,
         account.connectedAccountId,
         startDate,
         endDate

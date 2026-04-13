@@ -1,11 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useFinance } from '../context/FinanceContext';
+import { useAuth } from '../context/AuthContext';
 import { CheckCircle2, Loader2, AlertCircle, ArrowRight } from 'lucide-react';
 import { getSession } from '../services/brankas';
 
+// Vercel API endpoints
+const VERCEL_API_URL = '/api/brankas';
+
 export function CallbackPage() {
   const { setActivePage, addConnectedAccount } = useFinance();
+  const { user } = useAuth();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [institutionName, setInstitutionName] = useState<string>('your account');
   const [errorMessage, setErrorMessage] = useState<string>('');
@@ -33,14 +38,78 @@ export function CallbackPage() {
         return;
       }
 
-      // Note: Production backend (Firebase Functions) disabled - using sandbox direct flow only
-      // The code from URL is logged but not processed through backend
-      if (code) {
-        console.log('Brankas authorization code received (sandbox mode):', code);
-        // In sandbox mode, we use the session-based flow below instead of code exchange
+      // VERCEL BACKEND FLOW: If code is present, send to Vercel API
+      if (code && user) {
+        try {
+          console.log('Sending code to Vercel API:', code);
+          
+          const response = await fetch(`${VERCEL_API_URL}/callback`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              code, 
+              institutionId,
+              userId: user.uid 
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Backend exchange failed');
+          }
+
+          const data = await response.json();
+          
+          if (data.success && data.accounts) {
+            // Add each connected account with tokens
+            data.accounts.forEach((acc: any) => {
+              addConnectedAccount({
+                name: acc.name,
+                balance: acc.balance || 0,
+                icon: acc.institutionId?.includes('gcash') || acc.institutionId?.includes('maya') || acc.institutionId?.includes('shopeepay') || acc.institutionId?.includes('paymaya')
+                  ? 'wallet'
+                  : 'landmark',
+                connectedAccountId: acc.brankasAccountId,
+                institution: acc.institution,
+                institutionId: acc.institutionId,
+                accessToken: acc.accessToken,
+                refreshToken: acc.refreshToken,
+                tokenExpiresAt: acc.tokenExpiresAt,
+              });
+
+              // Add transactions if any
+              if (acc.transactions && acc.transactions.length > 0) {
+                // TODO: Add transactions to FinanceContext
+                console.log(`Received ${acc.transactions.length} transactions`);
+              }
+            });
+
+            // Clear stored session info
+            localStorage.removeItem('brankas_session_id');
+            localStorage.removeItem('brankas_institution');
+            localStorage.removeItem('brankas_institution_id');
+
+            setStatus('success');
+            return;
+          }
+        } catch (err: any) {
+          console.error('Backend exchange failed:', err);
+          setErrorMessage(err.message || 'Failed to connect account');
+          
+          // Fallback to sandbox flow if available
+          if (!sessionId) {
+            setStatus('error');
+            return;
+          }
+          // Otherwise continue to try sandbox flow below
+        }
+      } else if (code && !user) {
+        setStatus('error');
+        setErrorMessage('You must be logged in to connect an account.');
+        return;
       }
 
-      // SANDBOX/DIRECT FLOW: Poll session status
+      // SANDBOX/DIRECT FLOW: Poll session status (fallback)
       if (!sessionId) {
         setStatus('error');
         setErrorMessage('No session found. Please try connecting again.');
@@ -106,7 +175,7 @@ export function CallbackPage() {
     };
 
     processCallback();
-  }, [addConnectedAccount, setActivePage]);
+  }, [addConnectedAccount, setActivePage, user]);
   return (
     <div className="w-full min-h-screen bg-cream dark:bg-[#1C1C1E] flex flex-col items-center justify-center p-6">
       <motion.div

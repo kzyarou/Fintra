@@ -1,8 +1,9 @@
 // Brankas API Integration Service
-// Uses Brankas Direct API for Philippine e-wallets and banks
+// Frontend service - all secure operations go through Vercel backend
 
-const BRANKAS_BASE_URL = 'https://api.brankas.com';
-const SECRET_KEY = 'SANDBOX-ImDnGc0tftvcNv7yNAj4WKV1YBfPFMfh3DKox9c0f7KfHYcEB4i1Btr1lsy9WiK4';
+const VERCEL_API_URL = '/api/brankas';
+
+// Note: Secret key has been moved to Vercel backend for security
 
 // Philippine institutions supported by Brankas
 export const PH_INSTITUTIONS = [
@@ -51,7 +52,7 @@ export interface BrankasTransaction {
 // Production callback URL - update this to match your deployed app
 const PRODUCTION_CALLBACK_URL = 'https://fintraph.vercel.app/callback';
 
-// Create a Brankas session for bank linking
+// Create a Brankas session for bank linking (calls Vercel backend)
 export async function createSession(
   institution: InstitutionId,
   redirectUrl?: string
@@ -59,11 +60,12 @@ export async function createSession(
   // Auto-detect environment: use production URL if not localhost
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   const finalRedirectUrl = redirectUrl || (isLocalhost ? window.location.origin + '/callback' : PRODUCTION_CALLBACK_URL);
-  const response = await fetch(`${BRANKAS_BASE_URL}/v1/sessions`, {
+  
+  // Call Vercel backend to create session (secure - no secret in frontend)
+  const response = await fetch(`${VERCEL_API_URL}/create-session`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${SECRET_KEY}`,
     },
     body: JSON.stringify({
       institution,
@@ -81,15 +83,11 @@ export async function createSession(
   return response.json();
 }
 
-// Get session status and account details
+// Get session status and account details (calls Vercel backend)
 export async function getSession(sessionId: string): Promise<BrankasSession & {
   accounts?: BrankasAccount[];
 }> {
-  const response = await fetch(`${BRANKAS_BASE_URL}/v1/sessions/${sessionId}`, {
-    headers: {
-      'Authorization': `Bearer ${SECRET_KEY}`,
-    },
-  });
+  const response = await fetch(`${VERCEL_API_URL}/get-session?sessionId=${sessionId}`);
 
   if (!response.ok) {
     const error = await response.json();
@@ -99,24 +97,25 @@ export async function getSession(sessionId: string): Promise<BrankasSession & {
   return response.json();
 }
 
-// Fetch transactions for an account
+// Fetch transactions for an account (calls Vercel backend)
 export async function fetchTransactions(
+  accessToken: string,
   accountId: string,
   startDate?: string,
   endDate?: string
 ): Promise<BrankasTransaction[]> {
-  const params = new URLSearchParams();
-  if (startDate) params.append('start_date', startDate);
-  if (endDate) params.append('end_date', endDate);
-
-  const response = await fetch(
-    `${BRANKAS_BASE_URL}/v1/accounts/${accountId}/transactions?${params}`,
-    {
-      headers: {
-        'Authorization': `Bearer ${SECRET_KEY}`,
-      },
-    }
-  );
+  const response = await fetch(`${VERCEL_API_URL}/transactions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      accessToken,
+      accountId,
+      startDate,
+      endDate,
+    }),
+  });
 
   if (!response.ok) {
     const error = await response.json();
@@ -127,19 +126,21 @@ export async function fetchTransactions(
   return data.transactions || [];
 }
 
-// Get account balance
-export async function fetchBalance(accountId: string): Promise<{
+// Get account balance (calls Vercel backend)
+export async function fetchBalance(accessToken: string, accountId: string): Promise<{
   balance: number;
   currency: string;
 }> {
-  const response = await fetch(
-    `${BRANKAS_BASE_URL}/v1/accounts/${accountId}/balance`,
-    {
-      headers: {
-        'Authorization': `Bearer ${SECRET_KEY}`,
-      },
-    }
-  );
+  const response = await fetch(`${VERCEL_API_URL}/balance`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      accessToken,
+      accountId,
+    }),
+  });
 
   if (!response.ok) {
     const error = await response.json();
@@ -149,17 +150,18 @@ export async function fetchBalance(accountId: string): Promise<{
   return response.json();
 }
 
-// Disconnect an account
-export async function disconnectAccount(accountId: string): Promise<void> {
-  const response = await fetch(
-    `${BRANKAS_BASE_URL}/v1/accounts/${accountId}`,
-    {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${SECRET_KEY}`,
-      },
-    }
-  );
+// Disconnect an account (calls Vercel backend)
+export async function disconnectAccount(accessToken: string, accountId: string): Promise<void> {
+  const response = await fetch(`${VERCEL_API_URL}/disconnect`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      accessToken,
+      accountId,
+    }),
+  });
 
   if (!response.ok) {
     const error = await response.json();

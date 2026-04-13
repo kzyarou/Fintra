@@ -44,6 +44,10 @@ export interface Account {
   institutionId?: string;
   lastSyncAt?: string;
   isConnected?: boolean;
+  // OAuth tokens (stored for syncing)
+  accessToken?: string;
+  refreshToken?: string;
+  tokenExpiresAt?: string;
 }
 
 export interface WalletBudget {
