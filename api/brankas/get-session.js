@@ -1,9 +1,6 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-
 const BRANKAS_BASE_URL = 'https://api.brankas.com';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Enable CORS
+module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -16,15 +13,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { sessionId } = req.query;
+  const { sessionId } = req.query || {};
 
-  if (!sessionId || typeof sessionId !== 'string') {
+  if (!sessionId) {
     return res.status(400).json({ error: 'Session ID is required' });
   }
 
   const BRANKAS_SECRET_KEY = process.env.BRANKAS_SECRET_KEY;
 
   if (!BRANKAS_SECRET_KEY) {
+    console.error('ERROR: BRANKAS_SECRET_KEY not set');
     return res.status(500).json({ error: 'Brankas secret key not configured' });
   }
 
@@ -36,20 +34,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      return res.status(response.status).json({ 
-        error: error.message || 'Failed to get session' 
-      });
+      const error = await response.json().catch(() => ({ message: 'Failed to get session' }));
+      return res.status(response.status).json({ error: error.message });
     }
 
     const data = await response.json();
     return res.status(200).json(data);
 
-  } catch (error: any) {
-    console.error('Get session error:', error);
+  } catch (error) {
+    console.error('Get session error:', error.message);
     return res.status(500).json({
       error: 'Internal server error',
       message: error.message,
     });
   }
-}
+};
