@@ -8,8 +8,8 @@ const db = admin.firestore();
 
 // Brankas configuration
 const BRANKAS_BASE_URL = 'https://api.brankas.com';
-// Store this in Firebase Functions config: firebase functions:config:set brankas.secret="YOUR_KEY"
-const BRANKAS_SECRET_KEY = functions.config().brankas?.secret || process.env.BRANKAS_SECRET_KEY;
+// Get from environment variable (set in .env file for emulator, or Google Cloud Secret for production)
+const BRANKAS_SECRET_KEY = process.env.BRANKAS_SECRET_KEY;
 
 /**
  * Brankas OAuth callback handler

@@ -1,16 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useFinance } from '../context/FinanceContext';
-import { useAuth } from '../context/AuthContext';
 import { CheckCircle2, Loader2, AlertCircle, ArrowRight } from 'lucide-react';
 import { getSession } from '../services/brankas';
 
-// Firebase Function URL - update after deploying functions
-const FIREBASE_FUNCTION_URL = 'https://us-central1-kash-a97db.cloudfunctions.net/brankasCallback';
-
 export function CallbackPage() {
   const { setActivePage, addConnectedAccount } = useFinance();
-  const { user } = useAuth();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [institutionName, setInstitutionName] = useState<string>('your account');
   const [errorMessage, setErrorMessage] = useState<string>('');
@@ -38,66 +33,11 @@ export function CallbackPage() {
         return;
       }
 
-      // PRODUCTION FLOW: If code is present, send to Firebase backend
-      if (code && user) {
-        try {
-          console.log('Sending code to Firebase function:', code);
-          
-          const response = await fetch(FIREBASE_FUNCTION_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              code, 
-              institutionId,
-              userId: user.uid 
-            }),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Backend exchange failed');
-          }
-
-          const data = await response.json();
-          
-          if (data.success && data.accounts) {
-            // Add each connected account
-            data.accounts.forEach((acc: any) => {
-              addConnectedAccount({
-                name: acc.name,
-                balance: acc.balance || 0,
-                icon: acc.institutionId?.includes('gcash') || acc.institutionId?.includes('maya') || acc.institutionId?.includes('shopeepay') || acc.institutionId?.includes('paymaya')
-                  ? 'wallet'
-                  : 'landmark',
-                connectedAccountId: acc.brankasAccountId,
-                institution: acc.institution,
-                institutionId: acc.institutionId,
-              });
-            });
-
-            // Clear stored session info
-            localStorage.removeItem('brankas_session_id');
-            localStorage.removeItem('brankas_institution');
-            localStorage.removeItem('brankas_institution_id');
-
-            setStatus('success');
-            return;
-          }
-        } catch (err: any) {
-          console.error('Backend exchange failed:', err);
-          setErrorMessage(err.message || 'Failed to connect account');
-          
-          // Fallback to sandbox flow if available
-          if (!sessionId) {
-            setStatus('error');
-            return;
-          }
-          // Otherwise continue to try sandbox flow below
-        }
-      } else if (code && !user) {
-        setStatus('error');
-        setErrorMessage('You must be logged in to connect an account.');
-        return;
+      // Note: Production backend (Firebase Functions) disabled - using sandbox direct flow only
+      // The code from URL is logged but not processed through backend
+      if (code) {
+        console.log('Brankas authorization code received (sandbox mode):', code);
+        // In sandbox mode, we use the session-based flow below instead of code exchange
       }
 
       // SANDBOX/DIRECT FLOW: Poll session status
@@ -166,7 +106,7 @@ export function CallbackPage() {
     };
 
     processCallback();
-  }, [addConnectedAccount, setActivePage, user]);
+  }, [addConnectedAccount, setActivePage]);
   return (
     <div className="w-full min-h-screen bg-cream dark:bg-[#1C1C1E] flex flex-col items-center justify-center p-6">
       <motion.div
