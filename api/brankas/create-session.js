@@ -1,8 +1,6 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-
 const BRANKAS_BASE_URL = 'https://api.brankas.com';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+module.exports = async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -16,7 +14,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { institution, redirect_url, country, products } = req.body;
+  const { institution, redirect_url, country, products } = req.body || {};
 
   if (!institution) {
     return res.status(400).json({ error: 'Institution is required' });
@@ -25,10 +23,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const BRANKAS_SECRET_KEY = process.env.BRANKAS_SECRET_KEY;
 
   if (!BRANKAS_SECRET_KEY) {
+    console.error('ERROR: BRANKAS_SECRET_KEY not set in environment');
     return res.status(500).json({ error: 'Brankas secret key not configured' });
   }
 
   try {
+    console.log('Creating Brankas session for institution:', institution);
+    
     const response = await fetch(`${BRANKAS_BASE_URL}/v1/sessions`, {
       method: 'POST',
       headers: {
@@ -44,20 +45,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     if (!response.ok) {
-      const error = await response.json();
+      const error = await response.json().catch(() => ({ message: 'Unknown error' }));
+      console.error('Brankas API error:', error);
       return res.status(response.status).json({ 
         error: error.message || 'Failed to create Brankas session' 
       });
     }
 
     const data = await response.json();
+    console.log('Session created successfully');
     return res.status(200).json(data);
 
-  } catch (error: any) {
-    console.error('Create session error:', error);
+  } catch (error) {
+    console.error('Create session error:', error.message);
     return res.status(500).json({
       error: 'Internal server error',
       message: error.message,
     });
   }
-}
+};
