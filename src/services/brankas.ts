@@ -1,5 +1,6 @@
 // Brankas API Integration Service
 // Frontend service - all secure operations go through Vercel backend
+// Deploy: Force fresh build
 
 const VERCEL_API_URL = '/api/brankas';
 
