@@ -12,7 +12,12 @@ export function CallbackPage() {
 
   useEffect(() => {
     const processCallback = async () => {
-      // Get stored session info
+      // Get code from URL (for production backend flow)
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+      const error = urlParams.get('error');
+
+      // Get stored session info (for sandbox direct flow)
       const sessionId = localStorage.getItem('brankas_session_id');
       const institution = localStorage.getItem('brankas_institution');
       const institutionId = localStorage.getItem('brankas_institution_id');
@@ -21,6 +26,46 @@ export function CallbackPage() {
         setInstitutionName(institution);
       }
 
+      // Handle error from Brankas redirect
+      if (error) {
+        setStatus('error');
+        setErrorMessage(`Authentication failed: ${error}`);
+        return;
+      }
+
+      // PRODUCTION FLOW: If code is present, send to backend
+      // This is the recommended secure flow for production
+      if (code) {
+        try {
+          // TODO: Replace with your Firebase function URL
+          // const backendUrl = 'https://your-firebase-function.vercel.app/api/brankas/callback';
+          // const response = await fetch(backendUrl, {
+          //   method: 'POST',
+          //   headers: { 'Content-Type': 'application/json' },
+          //   body: JSON.stringify({ code, institutionId }),
+          // });
+          // const data = await response.json();
+          // addConnectedAccount(data.account);
+
+          // For now, show info that backend integration is needed
+          console.log('Brankas authorization code received:', code);
+          
+          // Fallback: Try direct session flow if sessionId exists
+          if (!sessionId) {
+            setStatus('error');
+            setErrorMessage(
+              'Production backend not configured. ' +
+              'Please set up a Firebase function to exchange the code. ' +
+              'See BRANKAS_INTEGRATION.md for details.'
+            );
+            return;
+          }
+        } catch (err) {
+          console.error('Backend exchange failed:', err);
+        }
+      }
+
+      // SANDBOX/DIRECT FLOW: Poll session status
       if (!sessionId) {
         setStatus('error');
         setErrorMessage('No session found. Please try connecting again.');
@@ -86,7 +131,7 @@ export function CallbackPage() {
     };
 
     processCallback();
-  }, [addConnectedAccount]);
+  }, [addConnectedAccount, setActivePage]);
   return (
     <div className="w-full min-h-screen bg-cream dark:bg-[#1C1C1E] flex flex-col items-center justify-center p-6">
       <motion.div

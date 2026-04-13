@@ -48,11 +48,17 @@ export interface BrankasTransaction {
   type: 'debit' | 'credit';
 }
 
+// Production callback URL - update this to match your deployed app
+const PRODUCTION_CALLBACK_URL = 'https://fintraph.vercel.app/callback';
+
 // Create a Brankas session for bank linking
 export async function createSession(
   institution: InstitutionId,
-  redirectUrl: string = window.location.origin + '/callback'
+  redirectUrl?: string
 ): Promise<BrankasSession> {
+  // Auto-detect environment: use production URL if not localhost
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const finalRedirectUrl = redirectUrl || (isLocalhost ? window.location.origin + '/callback' : PRODUCTION_CALLBACK_URL);
   const response = await fetch(`${BRANKAS_BASE_URL}/v1/sessions`, {
     method: 'POST',
     headers: {
@@ -61,7 +67,7 @@ export async function createSession(
     },
     body: JSON.stringify({
       institution,
-      redirect_url: redirectUrl,
+      redirect_url: finalRedirectUrl,
       country: 'PH',
       products: ['balance', 'transactions'],
     }),
