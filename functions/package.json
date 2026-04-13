@@ -1,0 +1,15 @@
+{
+  "name": "fintra-functions",
+  "version": "1.0.0",
+  "description": "Firebase Functions for Fintra Brankas integration",
+  "main": "index.js",
+  "engines": {
+    "node": "18"
+  },
+  "dependencies": {
+    "firebase-admin": "^11.11.0",
+    "firebase-functions": "^4.5.0",
+    "cors": "^2.8.5"
+  },
+  "private": true
+}
